@@ -7,7 +7,7 @@ function wordToPoint(w,Rep)
     point = zeros(3)
     eigen_w = eigen(Rep_w)
     for (i, eig) in enumerate(eigen_w.values)
-        if norm(eig)>1
+        if norm(eig)>1+10^-5
             point = eigen_w.vectors[:,i]
             break
         end
