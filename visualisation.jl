@@ -1,11 +1,18 @@
 import automaton.jl
+import parametrization.jl
 
 
-Triangle = buildFundTriangle(3,3,4)
+p = 3
+q = 3
+r = 4
 
-function word
+Triangle = buildFundTriangle(p,q,r)
 
 
+θ = π
+α = π
+
+My_Rep = parametrization(θ,α,p,q,r)
 
 
 

@@ -20,17 +20,23 @@ function wordToPoint(w,Rep)
 end
 
 function wordToMatrix(w,Rep)
+
     if (length(w)%2)==1
+        
         throw(DomainError("The word w = $w must have even length"))
     else
         l = Int(length(w)/2)
-        
+        if (l%2)==1 #The length is not even anymore
+            l=l-1
+        end
         if w in keys(Rep)
             return Rep[w]
+        elseif l == 0
+            throw(DomainError("The word w = $w has not been found"))
         else
             w1 = w[1:l]
-            M1 = wordToMatrix(w1,Rep)
             w2 = w[l+1:end]
+            M1 = wordToMatrix(w1,Rep)
             M2 = wordToMatrix(w2,Rep)
             M = M1*M2
             Rep[w]=M
@@ -42,12 +48,15 @@ end
 function representation(θ,α,p,q,r)
     R1,R2,R3 = Symmetries(θ,α,p,q,r)
     Rep = Dict("" => Diagonal([1,1,1]),
-                "ab" => R1*inv(R2),
-                "bc" => R2*inv(R3),
-                "ca" => R3*inv(R1),
-                "ba" => R2*inv(R1),
-                "cb" => R3*inv(R2),
-                "ac" => R1*inv(R3),
+                "11" => Diagonal([1,1,1]),
+                "22" => Diagonal([1,1,1]),
+                "33" => Diagonal([1,1,1]),
+                "12" => R1*inv(R2),
+                "23" => R2*inv(R3),
+                "31" => R3*inv(R1),
+                "21" => R2*inv(R1),
+                "32" => R3*inv(R2),
+                "13" => R1*inv(R3),
                 )
     return Rep
 end

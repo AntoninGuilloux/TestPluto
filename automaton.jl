@@ -1,11 +1,11 @@
-using IntervalArithmetic, LinearAlgebra, Symbolics, Random
+using IntervalArithmetic, LinearAlgebra, Symbolics
 
 function buildFundTriangle(p,q,r)
     if p == Inf
         return [[im,-1],[-1,1],[1,im]]#outside of the triangle
     else
         P = [-1,1]
-        Q = [exp(im*(2pi-pi/p)),exp(im*(pi-pi/p))]
+        Q = [exp(im*(2*pi-pi/p)),exp(im*(pi-pi/p))]
         #building of the 3rd geodesic
         cp = cos(π/p)
         cq = cos(π/q)
