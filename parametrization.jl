@@ -1,0 +1,129 @@
+using LinearAlgebra
+
+
+
+function wordToPoint(w,Rep)
+    Rep_w = wordToMatrix(w,Rep)
+    point = zeros(3)
+    eigen_w = eigen(Rep_w)
+    for (i, eig) in enumerate(eigen_w.values)
+        if norm(eig)>1
+            point = eigen_w.vectors[:,i]
+            break
+        end
+    end
+    if point == zeros(3)
+        throw(ValueError("w=$w is not sent to a hyperbolic transformation"))
+    else
+        return point/point[3]
+    end
+end
+
+function wordToMatrix(w,Rep)
+    if (length(w)%2)==1
+        throw(DomainError("The word w = $w must have even length"))
+    else
+        l = Int(length(w)/2)
+        
+        if w in keys(Rep)
+            return Rep[w]
+        else
+            w1 = w[1:l]
+            M1 = wordToMatrix(w1,Rep)
+            w2 = w[l+1:end]
+            M2 = wordToMatrix(w2,Rep)
+            M = M1*M2
+            Rep[w]=M
+            return M
+        end
+    end
+end
+
+function representation(θ,α,p,q,r)
+    R1,R2,R3 = Symmetries(θ,α,p,q,r)
+    Rep = Dict("" => Diagonal([1,1,1]),
+                "ab" => R1*inv(R2),
+                "bc" => R2*inv(R3),
+                "ca" => R3*inv(R1),
+                "ba" => R2*inv(R1),
+                "cb" => R3*inv(R2),
+                "ac" => R1*inv(R3),
+                )
+    return Rep
+end
+
+function Symmetries(θ,α,p,q,r)
+    sp, sp2, sq, sq2, sr, sr2 = precompute(p,q,r)
+    θ_min, θ_max = θ_range(p)
+    if θ <θ_min || θ >θ_max
+        throw(DomainError("θ is not acceptable for this p"))
+    else
+        α_min, α_max = α_range(θ,sp2,sq2,sr2)
+        if α <α_min || α >α_max
+            throw(DomainError("α is not acceptable for this p, q, r, θ"))
+        else
+            sθ = sin(θ/2)
+            ϕ_a = (asin( sp/sθ))
+            ϕ_b = (asin( sq/sθ))
+            ϕ_c = (asin( sr/sθ))
+            
+            sphib = sin(ϕ_b)
+            sphic = sin(ϕ_c)
+            
+            tmp = cos(ϕ_a)*exp(-im*α)-cos(ϕ_b)*cos(ϕ_c)
+            ρ_a = (abs(tmp)/(sphib*sphic))
+            ν = angle(tmp)
+            
+            R3 = τ(θ)
+            R2 = M(ϕ_b)τ(θ)*inv(M(ϕ_b))
+            R1 = σ(-1*ν)T(ρ_a)M(ϕ_c)τ(θ)*inv(M(ϕ_c))*inv(T(ρ_a))σ(ν)
+            return (R1,R2,R3)
+        end
+    end
+end
+
+
+function θ_range(p)
+    return (2*π/p, 2*π*(1-1/p))
+end
+
+function α_range(θ,sp2,sq2,sr2)
+	cos_max = cos_α_max(θ,sp2,sq2,sr2)
+	if cos_max>1
+		return 0
+	elseif cos_max<-1
+		return π
+	else
+		return (acos(cos_max),2*π-acos(cos_max))
+	end
+end
+
+function cos_α_max(θ,sp2,sq2,sr2)
+	sθ = sin(θ/2)
+	sθ2 = sθ^2
+	cos_α_m = sθ * (2 * sθ2 - (sp2+sq2+sr2))/(2*sqrt(π*(sθ2-sp2))) 
+	return cos_α_m
+end
+
+function τ(x)
+    return Diagonal([1,exp(im*x),1])
+end
+function σ(x)
+    return Diagonal([exp(im*x),1,1])
+end
+function M(x)
+    return [cos(x) sin(x) 0; -sin(x) cos(x) 0; 0 0 1]
+end
+function T(x)
+    return [x 0 sqrt(x^2-1); 0 1 0; sqrt(x^2-1) 0 x]
+end
+
+function precompute(p,q,r)
+    sp = (sin(π/p))
+    sp2 = sp*sp
+    sq = (sin(π/q))
+    sq2 = sq*sq
+    sr = (sin(π/r))
+    sr2 = sr*sr;
+    return sp, sp2, sq, sq2, sr, sr2
+end

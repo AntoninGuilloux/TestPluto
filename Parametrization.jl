@@ -2,7 +2,7 @@
 # v0.19.22
 
 #> [frontmatter]
-#> title = "Parametrization of tiangles groups representations"
+#> title = "Parametrization of triangles groups representations"
 #> date = "2023-01-30"
 #> description = "A short notebook to compute triple of matrices A,B,C with ABC=I3"
 
