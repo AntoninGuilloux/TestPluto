@@ -25,11 +25,8 @@ end
 # ╔═╡ 73492797-d697-4356-818c-238e838fc9d1
 automaton = ingredients("automaton.jl")
 
-# ╔═╡ d263fc4a-f404-4617-8234-09a48f773801
-automaton.intersection(0,3,2,4)
-
 # ╔═╡ f9f102e3-114f-45e2-b5fe-43854953bae0
-(θ,α) = (π,π+1.25)
+(θ,α) = (π,π+.1)
 
 # ╔═╡ d233ae61-2942-43c4-b57a-39d15d8f087a
 (p,q,r) = (3,3,4)
@@ -38,39 +35,30 @@ automaton.intersection(0,3,2,4)
 Triangle = automaton.buildFundTriangle(p,q,r)
 
 # ╔═╡ 948fe973-d926-48ab-b269-baa51cc4144b
-My_automaton = automaton.dummyAuto
-
-# ╔═╡ 832e2a03-66aa-49e4-9865-2052f93d736a
-(chosenPrefixes,chosenCycles) = automaton.dijkstra(My_automaton)
-
-# ╔═╡ 32b3af1b-dd73-406f-85ba-e143c918718d
-w = automaton.findWord(Triangle, My_automaton, chosenPrefixes, chosenCycles, 0, 0.001)
+begin
+	My_automaton = automaton.dummyAuto
+	(chosenPrefixes,chosenCycles) = automaton.dijkstra(My_automaton)
+	w = automaton.findWord(Triangle, My_automaton, chosenPrefixes, chosenCycles, 0, 0.001) #un test
+end
 
 # ╔═╡ 95f36f45-874c-4ccc-99b4-be3c40688125
 parametrization = ingredients("parametrization.jl")
 
 # ╔═╡ e358ff80-d05c-4f05-8452-8f447b25f2f7
-My_Rep = parametrization.representation(θ,α,p,q,r)
+begin
+	My_Rep = parametrization.representation(θ,α,p,q,r)
+end
 
 # ╔═╡ 744c62a9-cb80-4b7d-9890-ca2f37334f0d
 sum(parametrization.wordToMatrix("1312",My_Rep)[i,i] for i in 1:3)
 
-# ╔═╡ 7ab65dda-01c9-4536-aa9d-7b951b6ca8a1
-collect(abs(l) for l in (eigen(parametrization.wordToMatrix("123123",My_Rep))).values)
-
 # ╔═╡ 39c341c2-eb15-40a6-8c79-2a44a5e74f96
-fixedPoints_Cycles = parametrization.fixedPoints(chosenCycles, My_Rep)
-
-# ╔═╡ 8f1bd5de-2da8-49ab-b682-6ed1a73fbca9
-parametrization.wordToPoint(w, My_Rep, fixedPoints_Cycles)
-
-# ╔═╡ e0d0e176-7cfe-46fb-8842-338d6095f918
-function mult2pi(x)
-	return 2*π*x
+begin
+	fixedPoints_Cycles = parametrization.fixedPoints(chosenCycles, My_Rep)
 end
 
 # ╔═╡ 98e6fc47-d574-46cc-8ab5-d45d5c7e4ecb
-StartIntervals = ((mult2pi(i/1000),mult2pi((i+1)/1000)) for i in 0:10:999)
+StartIntervals = ((2*π*(i/1000),2*π*((i+1)/1000)) for i in 0:10:999)
 
 # ╔═╡ 1d929e1f-1832-4416-9a9d-11e39b7413b2
 function enrichCannonThurston(intervals_to_compute,
@@ -80,12 +68,11 @@ function enrichCannonThurston(intervals_to_compute,
 								automat,
 								chosenPrefixes,
 								chosenCycles,
-								fixedPoints_Cycles
+								fixedPoints_Cycles,
 								)
 	new_cannonthurston = SortedDict()
 	for I in intervals_to_compute
 		a,b = I
-		m = (a+b)/2
 		word = automaton.findWord(
 			triangle, 
 			automat, 
@@ -93,14 +80,16 @@ function enrichCannonThurston(intervals_to_compute,
 			chosenCycles,
 			I[1],
 			I[2]
-		)# Attention, en fait, word = p,s tel que ps^* est dans le langage
-		# et tend vers un point de I
+		)
+
+		## Attention, il faut associer à (p,s) le point fixe dans S^1. Je le fais mal
+		new_angle=((a+b)/2)%(2*π)
 
 		new_point = parametrization.wordToPoint(
 			word,
 			representation,
 			fixedPoints_Cycles)
-		new_cannonthurston[m] = (new_point, word) # Il faudrait mettre vraiment le point
+		new_cannonthurston[new_angle] = (new_point, word) # Il faudrait mettre vraiment le point
 		#fixe de w
 	end
 	return merge(existing_cannonthurston,new_cannonthurston)
@@ -126,7 +115,7 @@ function dichotomy(a,b)
 end
 
 # ╔═╡ 89692e62-068f-462b-883b-9bbb3416fd90
-function buildNewIntervals(cannonthurston::DataStructures.SortedDict, precision_cible = 10^-2)
+function buildNewIntervals(cannonthurston::DataStructures.SortedDict, precision_cible)
 	max_distance = 0
 	NewIntervals = []
 	
@@ -170,10 +159,10 @@ function IterativeConstruction(startIntervals,
 			automat,
 			chosenPrefixes,
 			chosenCycles,
-			fixedPoints_Cycles
+			fixedPoints_Cycles,
 			)
 		print("Numbers of intervals: $(length(keys(CannonThurston)))\n")
-		Intervals  = buildNewIntervals(CannonThurston)
+		Intervals  = buildNewIntervals(CannonThurston,precision_cible)
 		print("Numbers of new intervals: $(length(Intervals))\n")
 
 	end
@@ -189,8 +178,9 @@ CannonThurston = IterativeConstruction(
 	chosenPrefixes,
 	chosenCycles,
 	fixedPoints_Cycles,
-	10^-2,#precision cible 
-	20)#Nombre max d'iterations
+	10^-4,#precision cible 
+	20
+)#Nombre max d'iterations
 
 # ╔═╡ 7ab8e01a-f19d-4ded-bf5b-d8ffb0b3c512
 function stereographic(point)
@@ -215,7 +205,10 @@ begin
 end
 
 # ╔═╡ bff4e06e-dbe1-4d8f-9b10-787e6d3a21c0
-plot3d(X,Y,Z,line_z=angles,ratio=1)
+scatter3d(X,Y,Z,marker_z=angles,markersize=1, markerstrokewidth=0,ratio=1)
+
+# ╔═╡ 76c4b2f2-7793-4896-8e46-dedcb1aa2512
+length(X)
 
 # ╔═╡ af44fd95-d0cd-41f3-9697-f52dc4791a05
 for (i,k) in enumerate(keys(CannonThurston))
@@ -261,7 +254,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "dcacf5184531f47534fde14ca232074dbfdc29c1"
+project_hash = "2c381031b5c36ce06bc48674f7723452604932fb"
 
 [[deps.AbstractAlgebra]]
 deps = ["GroupsCore", "InteractiveUtils", "LinearAlgebra", "MacroTools", "Markdown", "Random", "RandomExtensions", "SparseArrays", "Test"]
@@ -1605,21 +1598,16 @@ version = "1.4.1+0"
 # ╔═╡ Cell order:
 # ╠═40e5d412-a3e2-11ed-210c-277683f873b2
 # ╠═73492797-d697-4356-818c-238e838fc9d1
-# ╠═d263fc4a-f404-4617-8234-09a48f773801
 # ╠═bff4e06e-dbe1-4d8f-9b10-787e6d3a21c0
+# ╠═76c4b2f2-7793-4896-8e46-dedcb1aa2512
 # ╠═f9f102e3-114f-45e2-b5fe-43854953bae0
 # ╠═744c62a9-cb80-4b7d-9890-ca2f37334f0d
 # ╠═d233ae61-2942-43c4-b57a-39d15d8f087a
 # ╠═6ab4de1a-e88c-435e-8cc1-52a8bf477542
 # ╠═948fe973-d926-48ab-b269-baa51cc4144b
-# ╠═832e2a03-66aa-49e4-9865-2052f93d736a
-# ╠═32b3af1b-dd73-406f-85ba-e143c918718d
 # ╠═95f36f45-874c-4ccc-99b4-be3c40688125
 # ╠═e358ff80-d05c-4f05-8452-8f447b25f2f7
-# ╠═7ab65dda-01c9-4536-aa9d-7b951b6ca8a1
 # ╠═39c341c2-eb15-40a6-8c79-2a44a5e74f96
-# ╠═8f1bd5de-2da8-49ab-b682-6ed1a73fbca9
-# ╠═e0d0e176-7cfe-46fb-8842-338d6095f918
 # ╠═98e6fc47-d574-46cc-8ab5-d45d5c7e4ecb
 # ╠═1d929e1f-1832-4416-9a9d-11e39b7413b2
 # ╠═bcc88dd6-2118-43b3-99df-6669ac92e2fb
