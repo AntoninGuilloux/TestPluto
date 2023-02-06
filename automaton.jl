@@ -59,6 +59,33 @@ function getImage(a,b,c)
     return (c*(a+b)-2*a*b)/(2*c-(a+b))
 end
 
+#(a*a - 2*a*b+b*b)/(4(c-(a+b)/2)) + (a+b)/2
+
+
+
+function betterGetImage(tri)
+    function partialFractionDecomp(l)
+        a = l[1]
+        b = l[2]
+        return [-(a+b)/2,(a*a-2*a*b+b*b)/4, (a+b)/2]
+    end
+    l1 = partialFractionDecomp(tri[1])
+    l2 = partialFractionDecomp(tri[2])
+    l3 = partialFractionDecomp(tri[3])
+    return function f(i,c)
+        if i == 1
+            return l1[2]/(c+l1[1])+l1[3]
+        elseif i == 2
+            return l2[2]/(c+l2[1])+l2[3]
+        elseif i==3
+            return l3[2]/(c+l3[1])+l3[3]
+        else
+            @assert(false)
+        end
+    end
+end
+        
+
 dummyAuto = [[2,3,4],
                 [0,3,4],
                 [5,0,4],
@@ -147,7 +174,21 @@ function finished(min,max,interval)
     between(interval[1],interval[2],min) && between(interval[1],interval[2],max)
 end
 
-function updateIntevals(symmetryAxisIndex,intervals)
+function updateInterval(symmetryAxis,interval)
+    min = interval[1]
+    max = interval[2]
+    interval[1] = getImage(symmetryAxis[1],symmetryAxis[2],max)
+    interval[2] = getImage(symmetryAxis[1],symmetryAxis[2],min)
+end
+
+function updateInterval2(symmetryAxisIndex,interval)
+    min = interval[1]
+    max = interval[2]
+    interval[1] = getImage2(symmetryAxisIndex,max)
+    interval[2] = getImage2(symmetryAxisIndex,min)
+end
+
+function updateIntervals(symmetryAxisIndex,intervals)
     fix1 = intervals[symmetryAxisIndex][1]
     fix2 = intervals[symmetryAxisIndex][2]
     for i in [1,2,3] 
@@ -169,7 +210,21 @@ function allSize(intervals)
     return l
 end
 
-function findWord(min,max,auto,baseTri)
+
+function intersection(a,b,c,d)
+    m=c
+    M=d
+    if between(c,d,b)
+        m=b
+    end
+    if between(c,d,a)
+        M=d
+    end
+    return [m,M]
+end
+
+
+function xfindWord(min,max,auto,baseTri)
     currentState = 1
     currentIntervals = copy.(baseTri)
     emin = exp(im*(min))
@@ -186,7 +241,7 @@ function findWord(min,max,auto,baseTri)
                     if intervalSize(currentIntervals[i][1],currentIntervals[i][2])< size
                         return word
                     else
-                        updateIntevals(i,currentIntervals)
+                        updateIntervals(i,currentIntervals)
                         currentState = auto[currentState][i]
                     end
                     break
@@ -196,5 +251,258 @@ function findWord(min,max,auto,baseTri)
         if !b
             @assert(false)
         end
+    end
+end
+
+
+function locate(baseTri,target,localisation)
+    localisation[1] = locateElem(baseTri,target[1])
+    localisation[2] = locateElem(baseTri,target[2])
+    
+    if localisation[1]>3
+        if localisation[1]==4
+            if real(target[1])<0
+                localisation[1] = 1
+            else
+                localisation[1] = 2
+            end
+        else
+            localisation[1] = 3
+        end
+    end
+    
+    if localisation[2]>3
+        if localisation[2]==4
+            if real(target[2])<0
+                localisation[2] = 3
+            else
+                localisation[2] = 1
+            end
+        else
+            localisation[2] = 2
+        end
+    end
+    
+    #check the orientation
+    if localisation[1] == localisation[2]
+        if (localisation[1] == 1 && real(target[1])<real(target[2])) || 
+            (localisation[1] !=1 && real(target[2])<real(target[1]))
+            localisation[3] = 1
+        else
+            localisation[3] = 0
+        end
+    end
+end
+
+
+
+    
+
+function locateElem(baseTri,target)
+    if imag(target)<-1e-16
+        return 1
+    elseif imag(target)>1e-16 && abs(abs(real(target))-abs(real(baseTri[2][2])))<1e-16
+        return 5
+    elseif abs(imag(target))<1e-16
+        return 4
+    elseif real(target)>real(baseTri[2][2])
+        return 2
+    else
+        return 3
+    end
+end
+
+function completeWord(baseTri,auto,target,currentState,parity)
+    localisation = [0,0,0]
+    word = ""
+    
+    while true
+#         if length(word)>200
+#             print(word)
+#             @assert(false)
+#         end
+        locate(baseTri,target,localisation)
+        if localisation[1] == localisation[2] && localisation[3] == 1
+            updateInterval(baseTri[localisation[1]],target)
+            parity = mod(parity+1,2)
+            word*=string(localisation[1])
+#             if (auto[currentState][localisation[1]]==0)
+#                 @assert(1==4)
+#             end
+            currentState = auto[currentState][localisation[1]]
+        else
+#             if mod(length(word),2) != w2
+#                 loc = localisation[parity+1]
+#                 word*=string(loc)
+#                 if (auto[currentState][loc]==0)
+#                     @assert(1==5)
+#                 end
+#                 currentState = auto[currentState][loc]
+#             end
+            return (word,currentState)
+        end
+    end
+end
+
+
+
+
+function findFirstPrefix(baseTri,auto,min,max)
+    currentState = 1
+    login = [min,max]
+    emin = exp(im*(min))
+    emax = exp(im*(max))
+    target = [emin,emax]
+    localisation = [0,0,0]
+    word = ""
+    
+    while true
+#         if length(word)>200
+#             print(word)
+#             @assert(false)
+#         end
+        locate(baseTri,target,localisation)
+        if localisation[1] == localisation[2] && localisation[3] == 1
+            updateInterval(baseTri[localisation[1]],target)
+#             updateInterval2(localisation[1],target)
+            word*=string(localisation[1])
+            
+#             if (auto[currentState][localisation[1]]==0)
+#                 @assert(1==2)
+#             end
+            currentState = auto[currentState][localisation[1]]
+        elseif mod(localisation[1]+1,3) == mod(localisation[2],3) #split
+#             w2 = mod(length(word),2)
+            
+            split = 0
+#             if localisation[1] == 1
+#                 split = 0
+#             elseif localisation[1] == 2
+#                 split = imag(log(baseTri[2][2]))
+#             else
+#                 split = π
+#             end
+            
+            if localisation[1] == 1
+                split = 1
+            elseif localisation[1] == 2
+                split = baseTri[2][2]
+            else
+                split = -1
+            end
+            
+#             min0 = imag(log(target[1]))
+#             max0 = imag(log(target[2]))
+            
+            wordc=""
+            
+            if abs(split-min)>abs(max-split)
+                target[2] = split
+                (wordc,currentState) = completeWord(baseTri,auto,target,currentState,0)
+            else
+                target[1] = split
+                (wordc,currentState) = completeWord(baseTri,auto,target,currentState,1)
+            end
+            return (word*wordc,currentState)
+        else #finished (make the work pair)
+#             if mod(length(word),2) == 1
+#                 loc = mod(localisation[1],3)+1
+#                 word*=string(loc)
+#                 currentState = loc
+#             end
+            return (word,currentState)
+        end
+    end
+end
+    
+
+function cutBaseInterval(min,max,triangle)
+    
+end
+
+function explore(graph,distances,paths,distance,path,current,base)
+    for i in [1,2,3]
+        tmpPath =path*string(i)
+        if graph[current][i] != 0
+            if distances[base,graph[current][i]] == -1 || distances[base,graph[current][i]]>distance
+                distances[base,graph[current][i]]=distance
+                paths[base,graph[current][i]]=tmpPath
+                explore(graph,distances,paths,distance+1,tmpPath,graph[current][i],base)
+            end
+        end
+    end
+end
+
+
+
+
+function dijkstra(auto)
+    chosenPrefixes = Array{String}(undef,length(auto))
+    chosenCycles = Array{String}(undef,length(auto))
+    distances = Array{Int64}(undef,length(auto),length(auto))
+    paths = Array{String}(undef,length(auto),length(auto))
+    
+    for vertex in 1:length(auto)
+        for i in 1:length(auto)
+            distances[vertex,i]=-1
+            paths[vertex,i]=""
+        end
+        explore(auto,distances,paths,1,"",vertex,vertex)
+    end
+    
+    for vertex in 1:length(auto)
+        index = -1
+        mn = 0
+        if distances[i,i]!=-1
+            index = vertex
+            mn = distances[i,i]
+        end
+        for i in 1:length(auto)
+            if distances[vertex,i] != -1
+                if distances[vertex,i]!=-1 && distances[i,i]!=-1 && (index==-1 || distances[i,i]<mn || 
+                        distances[i,i]<=mn && distances[vertex,i]<=distances[vertex,index])
+                    index = i
+                    mn = distances[i,i]
+                end
+            end
+        end
+        if index != vertex
+            chosenPrefixes[vertex] = paths[vertex,index]
+            chosenCycles[vertex] = paths[index,index]
+        else
+            chosenPrefixes[vertex] = ""
+            chosenCycles[vertex] = paths[index,index]
+        end
+    end
+    
+    
+    return (chosenPrefixes,chosenCycles)
+end
+
+function permute(str)
+    return str[2:length(str)]*str[1]
+end
+
+
+function findWordx(baseTri,auto,chosenPrefixes,chosenCycles,min,max)
+    (prefix1,currentState) = findFirstPrefix(baseTri,auto,min,max)
+    prefix2=chosenPrefixes[currentState]
+    if mod(length(prefix1)+length(prefix2),2) == 1
+        prefix2*=chosenCycles[currentState][1]
+        return (prefix1,prefix2,permute(chosenCycles[currentState]))
+    else
+        return (prefix1,prefix2,chosenCycles[currentState])
+    end
+end
+
+
+function findWord(baseTri,auto,chosenPrefixes,chosenCycles,min,max)
+    (prefix,currentState) = findFirstPrefix(baseTri,auto,min,max)
+    prefix*=chosenPrefixes[currentState]
+    if mod(length(prefix),2) == 1
+        prefix*=chosenCycles[currentState][1]
+        return (prefix,permute(chosenCycles[currentState]))
+    else
+        return (prefix,chosenCycles[currentState])
     end
 end

@@ -26,7 +26,7 @@ end
 automaton = ingredients("automaton.jl")
 
 # ╔═╡ f9f102e3-114f-45e2-b5fe-43854953bae0
-(θ,α) = (π+0.1,π)
+(θ,α) = (π,π+1)
 
 # ╔═╡ d233ae61-2942-43c4-b57a-39d15d8f087a
 (p,q,r) = (3,3,4)
@@ -167,10 +167,10 @@ begin
 end
 
 # ╔═╡ bff4e06e-dbe1-4d8f-9b10-787e6d3a21c0
-scatter3d(X,Y,Z,zcolor=angles,markersize=1,ratio=1)
+scatter3d(X,Y,Z,zcolor=angles,markersize=2,ratio=1)
 
-# ╔═╡ 21d0ea15-4e65-4311-bc82-e9b7f6853039
-points3D[1,2]
+# ╔═╡ 710a4dca-7d79-42d4-9ece-93ebe68d4e20
+length(X)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1574,6 +1574,7 @@ version = "1.4.1+0"
 # ╠═40e5d412-a3e2-11ed-210c-277683f873b2
 # ╠═73492797-d697-4356-818c-238e838fc9d1
 # ╠═bff4e06e-dbe1-4d8f-9b10-787e6d3a21c0
+# ╠═710a4dca-7d79-42d4-9ece-93ebe68d4e20
 # ╠═f9f102e3-114f-45e2-b5fe-43854953bae0
 # ╠═d233ae61-2942-43c4-b57a-39d15d8f087a
 # ╠═6ab4de1a-e88c-435e-8cc1-52a8bf477542
@@ -1594,6 +1595,5 @@ version = "1.4.1+0"
 # ╠═64d07633-23c3-4572-8981-8f421f99ef94
 # ╠═1e0c1097-5f47-4a7d-bbcd-97c0957801dd
 # ╠═4336715f-8df1-4d1a-8ccd-cc822f17f813
-# ╠═21d0ea15-4e65-4311-bc82-e9b7f6853039
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
