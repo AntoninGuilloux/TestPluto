@@ -1,22 +1,36 @@
 using LinearAlgebra
 
-
-
-function wordToPoint(w,Rep)
-    Rep_w = wordToMatrix(w,Rep)
-    point = zeros(3)
-    eigen_w = eigen(Rep_w)
-    for (i, eig) in enumerate(eigen_w.values)
-        if norm(eig)>1+10^-5
-            point = eigen_w.vectors[:,i]
-            break
+function fixedPoints(chosenCycles,Rep)
+    # On cherche les points fixes des cycles choisis. A optimiser:
+    # gérer les points fixes paraboliques
+    # ne pas tout diagonaliser (utiliser la dynamique contractante)
+    fPoints = Dict()
+    for s in chosenCycles
+        for i in 1:length(s)#On doit considérer toutes les permutations circulaires
+            ss = join(circshift(collect(s),i))
+            s2 = ss*ss #On double pour avoir des mots pairs
+            Rep_s = wordToMatrix(s2,Rep)
+            eigen_s = eigen(Rep_s)
+            for (i, eig) in enumerate(eigen_s.values)
+                if norm(eig)>1+10^-5
+                    point_s = eigen_s.vectors[:,i]
+                    fPoints[ss] = point_s/point_s[3]
+                    break
+                end
+            end
         end
     end
-    if point == zeros(3)
-        throw(ValueError("w=$w is not sent to a hyperbolic transformation"))
-    else
-        return point/point[3]
-    end
+    return fPoints
+end
+
+
+
+function wordToPoint(w,Rep,fixedPoints_computed)
+    (p,s) = w
+    Rep_p = wordToMatrix(p,Rep)
+    point_s = fixedPoints_computed[s]
+    point_w = Rep_p * point_s
+    return point_w/point_w[3]
 end
 
 function wordToMatrix(w,Rep)

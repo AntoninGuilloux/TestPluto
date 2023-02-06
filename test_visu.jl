@@ -26,7 +26,7 @@ end
 automaton = ingredients("automaton.jl")
 
 # ╔═╡ f9f102e3-114f-45e2-b5fe-43854953bae0
-(θ,α) = (π,π+1)
+(θ,α) = (π,π+1.25)
 
 # ╔═╡ d233ae61-2942-43c4-b57a-39d15d8f087a
 (p,q,r) = (3,3,4)
@@ -37,8 +37,11 @@ Triangle = automaton.buildFundTriangle(p,q,r)
 # ╔═╡ 948fe973-d926-48ab-b269-baa51cc4144b
 My_automaton = automaton.dummyAuto
 
+# ╔═╡ 832e2a03-66aa-49e4-9865-2052f93d736a
+(chosenPrefixes,chosenCycles) = automaton.dijkstra(My_automaton)
+
 # ╔═╡ 32b3af1b-dd73-406f-85ba-e143c918718d
-w = automaton.findWord(0,0.001,My_automaton,Triangle)
+w = automaton.findWord(Triangle, My_automaton, chosenPrefixes, chosenCycles, 0, 0.001)
 
 # ╔═╡ 95f36f45-874c-4ccc-99b4-be3c40688125
 parametrization = ingredients("parametrization.jl")
@@ -46,8 +49,17 @@ parametrization = ingredients("parametrization.jl")
 # ╔═╡ e358ff80-d05c-4f05-8452-8f447b25f2f7
 My_Rep = parametrization.representation(θ,α,p,q,r)
 
+# ╔═╡ 744c62a9-cb80-4b7d-9890-ca2f37334f0d
+sum(parametrization.wordToMatrix("1312",My_Rep)[i,i] for i in 1:3)
+
+# ╔═╡ 7ab65dda-01c9-4536-aa9d-7b951b6ca8a1
+collect(abs(l) for l in (eigen(parametrization.wordToMatrix("123123",My_Rep))).values)
+
+# ╔═╡ 39c341c2-eb15-40a6-8c79-2a44a5e74f96
+fixedPoints_Cycles = parametrization.fixedPoints(chosenCycles, My_Rep)
+
 # ╔═╡ 8f1bd5de-2da8-49ab-b682-6ed1a73fbca9
-parametrization.wordToPoint(w, My_Rep)
+parametrization.wordToPoint(w, My_Rep, fixedPoints_Cycles)
 
 # ╔═╡ e0d0e176-7cfe-46fb-8842-338d6095f918
 function mult2pi(x)
@@ -55,35 +67,40 @@ function mult2pi(x)
 end
 
 # ╔═╡ 98e6fc47-d574-46cc-8ab5-d45d5c7e4ecb
-StartIntervals = ((mult2pi(i/1000),mult2pi((i+1)/1000)) for i in 0:100:999)
-
-# ╔═╡ 37060a00-4644-44fc-9b40-38e59988f30f
-for I in StartIntervals
-	print(I)
-end
+StartIntervals = ((mult2pi(i/1000),mult2pi((i+1)/1000)) for i in 0:10:999)
 
 # ╔═╡ 1d929e1f-1832-4416-9a9d-11e39b7413b2
-function enrichCannonThurston(intervals,cannonthurston,rep,automat,triangle)
+function enrichCannonThurston(intervals_to_compute,
+								existing_cannonthurston,
+								representation,
+								triangle,
+								automat,
+								chosenPrefixes,
+								chosenCycles,
+								fixedPoints_Cycles
+								)
 	new_cannonthurston = SortedDict()
-	for I in intervals
-		a,b=I
+	for I in intervals_to_compute
+		a,b = I
 		m = (a+b)/2
-		word = automaton.findWord(I[1],I[2],automat,triangle)
-		if (length(word)%2)==1
-			if word[end]==1
-				word = word*"2"
-			else
-				word = word*"1"
-			end
-		end
-		try
-			point = parametrization.wordToPoint(word,rep)
-			new_cannonthurston[m] = point
-		catch
-			print("Attention, une impasse \n")
-		end
+		word = automaton.findWord(
+			triangle, 
+			automat, 
+			chosenPrefixes, 
+			chosenCycles,
+			I[1],
+			I[2]
+		)# Attention, en fait, word = p,s tel que ps^* est dans le langage
+		# et tend vers un point de I
+
+		new_point = parametrization.wordToPoint(
+			word,
+			representation,
+			fixedPoints_Cycles)
+		new_cannonthurston[m] = (new_point, word) # Il faudrait mettre vraiment le point
+		#fixe de w
 	end
-	return merge(cannonthurston,new_cannonthurston)
+	return merge(existing_cannonthurston,new_cannonthurston)
 end
 
 # ╔═╡ bcc88dd6-2118-43b3-99df-6669ac92e2fb
@@ -91,45 +108,67 @@ function distance(point1,point2)
 	return norm(point1 - point2)
 end
 
+# ╔═╡ 9d8bf73d-8329-4c72-8fdd-1aaac71a75f1
+function dichotomy(a,b)
+	if a < b
+		l = (b-a)/11
+		return ((a + 5*l),(b - 5*l))
+	else 
+		b = b+2*π
+		l = (b-a)/11
+		aa = (a + 5*l)
+		bb = (b-5*l)
+		return (aa%(2*π),bb%(2*π))
+	end
+end
+
 # ╔═╡ 89692e62-068f-462b-883b-9bbb3416fd90
-function buildNewIntervals(cannonthurston::DataStructures.SortedDict, precision = 10^-2)
+function buildNewIntervals(cannonthurston::DataStructures.SortedDict, precision_cible = 10^-2)
 	max_distance = 0
 	NewIntervals = []
-	CTkeys = append!(collect(keys(cannonthurston)),collect(keys(cannonthurston))[1])
-	l_k = length(CTkeys)
-	for k in 1:(l_k-1)
-		key0 = CTkeys[k]
-		key1 = CTkeys[k+1]
-		point0 = cannonthurston[key0]
-		point1 = cannonthurston[key1]
-		dist = distance(point0,point1)
-		if dist > precision
-			if key1 > key0
-				l = (key1 - key0)/4
-				NewIntervals = append!([(key0 + l,key1-l)],NewIntervals)
-			else
-				key1 = key1+2*π
-				l = (key1 - key0)/4
-				NewIntervals = append!([((key0 + l)%(2*π),(key1 - l)%(2*π))],NewIntervals)
-			end
+	
+	(k_0, (point_0,word_0)) = collect(cannonthurston)[end]
+	for (k_1,(point_1,word_1)) in cannonthurston
+		dist = distance(point_0,point_1)
+		if dist > precision_cible
+			append!(NewIntervals,[dichotomy(k_0,k_1)])
 		end
 		if dist > max_distance
+			print("A new bigger distance ($(k_0), $(dist)) \n")
 			max_distance = dist
 		end
+		(k_0,point_0) = (k_1,point_1)
 	end
 	print("$(max_distance) \n")
 	return NewIntervals
 end
 
 # ╔═╡ 3e114776-5667-4932-b56b-ba281d555912
-function IterativeConstruction(startIntervals, rep, automat, triangle)
+function IterativeConstruction(startIntervals, 
+								triangle, 
+								automat,
+								rep, 
+								choosenPrefixes,
+								choosenCycles,
+								fixedPoints_Cycles,
+								precision_cible,
+								bound_iteration)
 	CannonThurston = SortedDict()
 	Intervals = startIntervals
 	control = 1
-	while length(Intervals)>0 && control < 25
-		print("$(control) \n")
+	while length(Intervals)>0 && control < bound_iteration
+		print("Step $(control) \n")
 		control += 1
-		CannonThurston = enrichCannonThurston(Intervals, CannonThurston, rep, automat, triangle)
+		CannonThurston = enrichCannonThurston(
+			Intervals, 
+			CannonThurston,
+			rep,
+			triangle,
+			automat,
+			chosenPrefixes,
+			chosenCycles,
+			fixedPoints_Cycles
+			)
 		print("Numbers of intervals: $(length(keys(CannonThurston)))\n")
 		Intervals  = buildNewIntervals(CannonThurston)
 		print("Numbers of new intervals: $(length(Intervals))\n")
@@ -139,24 +178,30 @@ function IterativeConstruction(startIntervals, rep, automat, triangle)
 end
 
 # ╔═╡ 27d3f766-51a7-479d-927d-d778ca3a2947
-CannonThurston = IterativeConstruction(StartIntervals,My_Rep,My_automaton,Triangle)
+CannonThurston = IterativeConstruction(
+	StartIntervals,
+	Triangle,
+	My_automaton,
+	My_Rep,
+	chosenPrefixes,
+	chosenCycles,
+	fixedPoints_Cycles,
+	10^-2,#precision cible 
+	20)#Nombre max d'iterations
 
-# ╔═╡ 0027ce26-bc35-41cf-8d6d-0679f65885a3
-function stereographic(point3C)
-	a = real(point3C[1])
-	b = imag(point3C[1])
-	c = real(point3C[2])
-	d = imag(point3C[2])
+# ╔═╡ 7ab8e01a-f19d-4ded-bf5b-d8ffb0b3c512
+function stereographic(point)
+	a = real(point[1])
+	b = imag(point[1])
+	c = real(point[2])
+	d = imag(point[2])
 	return [a/(1-d),b/(1-d),c/(1-d)]
 end
-
-# ╔═╡ 64d07633-23c3-4572-8981-8f421f99ef94
-CannonThurston3D = SortedDict(k => stereographic(point) for (k,point) in CannonThurston)
 
 # ╔═╡ 1e0c1097-5f47-4a7d-bbcd-97c0957801dd
 begin
 	angles = collect(keys(CannonThurston))
-	points3D = [stereographic(point) for point in values(CannonThurston)]
+	points3D = [stereographic(point) for (point,words) in values(CannonThurston)]
 end
 
 # ╔═╡ 4336715f-8df1-4d1a-8ccd-cc822f17f813
@@ -167,10 +212,29 @@ begin
 end
 
 # ╔═╡ bff4e06e-dbe1-4d8f-9b10-787e6d3a21c0
-scatter3d(X,Y,Z,zcolor=angles,markersize=2,ratio=1)
+plot3d(X,Y,Z,line_z=angles,ratio=1)
 
-# ╔═╡ 710a4dca-7d79-42d4-9ece-93ebe68d4e20
-length(X)
+# ╔═╡ af44fd95-d0cd-41f3-9697-f52dc4791a05
+for (i,k) in enumerate(keys(CannonThurston))
+	if k==0.24636958638073708
+		print(i)
+	end
+end
+
+# ╔═╡ a4cb19ee-d9e0-4cf5-bc38-4892f944098e
+k0 = 0.24636958638073708
+
+# ╔═╡ 736706d2-d76d-44dc-ad80-26a5246ad2db
+k1 = collect(keys(CannonThurston))[37]
+
+# ╔═╡ 30f313a9-043d-4dba-bdab-50358069113a
+(point0,word0) = CannonThurston[k0]
+
+# ╔═╡ fd6604d6-f991-4ad9-a0a8-088f3c28109e
+(point1,word1) = CannonThurston[k1]
+
+# ╔═╡ d95bd7f9-e70b-4ed1-ba9d-c0f0a4553686
+point1-point0
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1574,26 +1638,34 @@ version = "1.4.1+0"
 # ╠═40e5d412-a3e2-11ed-210c-277683f873b2
 # ╠═73492797-d697-4356-818c-238e838fc9d1
 # ╠═bff4e06e-dbe1-4d8f-9b10-787e6d3a21c0
-# ╠═710a4dca-7d79-42d4-9ece-93ebe68d4e20
 # ╠═f9f102e3-114f-45e2-b5fe-43854953bae0
+# ╠═744c62a9-cb80-4b7d-9890-ca2f37334f0d
 # ╠═d233ae61-2942-43c4-b57a-39d15d8f087a
 # ╠═6ab4de1a-e88c-435e-8cc1-52a8bf477542
 # ╠═948fe973-d926-48ab-b269-baa51cc4144b
+# ╠═832e2a03-66aa-49e4-9865-2052f93d736a
 # ╠═32b3af1b-dd73-406f-85ba-e143c918718d
 # ╠═95f36f45-874c-4ccc-99b4-be3c40688125
 # ╠═e358ff80-d05c-4f05-8452-8f447b25f2f7
+# ╠═7ab65dda-01c9-4536-aa9d-7b951b6ca8a1
+# ╠═39c341c2-eb15-40a6-8c79-2a44a5e74f96
 # ╠═8f1bd5de-2da8-49ab-b682-6ed1a73fbca9
 # ╠═e0d0e176-7cfe-46fb-8842-338d6095f918
 # ╠═98e6fc47-d574-46cc-8ab5-d45d5c7e4ecb
-# ╠═37060a00-4644-44fc-9b40-38e59988f30f
 # ╠═1d929e1f-1832-4416-9a9d-11e39b7413b2
 # ╠═bcc88dd6-2118-43b3-99df-6669ac92e2fb
+# ╠═9d8bf73d-8329-4c72-8fdd-1aaac71a75f1
 # ╠═89692e62-068f-462b-883b-9bbb3416fd90
 # ╠═3e114776-5667-4932-b56b-ba281d555912
 # ╠═27d3f766-51a7-479d-927d-d778ca3a2947
-# ╠═0027ce26-bc35-41cf-8d6d-0679f65885a3
-# ╠═64d07633-23c3-4572-8981-8f421f99ef94
+# ╠═7ab8e01a-f19d-4ded-bf5b-d8ffb0b3c512
 # ╠═1e0c1097-5f47-4a7d-bbcd-97c0957801dd
 # ╠═4336715f-8df1-4d1a-8ccd-cc822f17f813
+# ╠═af44fd95-d0cd-41f3-9697-f52dc4791a05
+# ╠═a4cb19ee-d9e0-4cf5-bc38-4892f944098e
+# ╠═736706d2-d76d-44dc-ad80-26a5246ad2db
+# ╠═30f313a9-043d-4dba-bdab-50358069113a
+# ╠═fd6604d6-f991-4ad9-a0a8-088f3c28109e
+# ╠═d95bd7f9-e70b-4ed1-ba9d-c0f0a4553686
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

@@ -453,9 +453,9 @@ function dijkstra(auto)
     for vertex in 1:length(auto)
         index = -1
         mn = 0
-        if distances[i,i]!=-1
+        if distances[vertex,vertex]!=-1
             index = vertex
-            mn = distances[i,i]
+            mn = distances[vertex,vertex]
         end
         for i in 1:length(auto)
             if distances[vertex,i] != -1
@@ -483,17 +483,6 @@ function permute(str)
     return str[2:length(str)]*str[1]
 end
 
-
-function findWordx(baseTri,auto,chosenPrefixes,chosenCycles,min,max)
-    (prefix1,currentState) = findFirstPrefix(baseTri,auto,min,max)
-    prefix2=chosenPrefixes[currentState]
-    if mod(length(prefix1)+length(prefix2),2) == 1
-        prefix2*=chosenCycles[currentState][1]
-        return (prefix1,prefix2,permute(chosenCycles[currentState]))
-    else
-        return (prefix1,prefix2,chosenCycles[currentState])
-    end
-end
 
 
 function findWord(baseTri,auto,chosenPrefixes,chosenCycles,min,max)
