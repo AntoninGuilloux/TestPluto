@@ -36,21 +36,7 @@ function buildFundTriangle(p,q,r)
         return [P,Q,R]
     end
 end
-	
-function checkCircle(x,y,r,α)
-    print("\n")
-    print("\n")
-    #orthogonal to unit
-    print(x^2+y^2-(1+r^2)) 
-    print("\n")
-    # angle with (-1,1)
-    print(pi/acos(y/r))
-    print("\n")
-    # angle with the other: y=-x/cos(α)
-    print(pi/acos(cos(α)*(-1*x*tan(α)-y)/r))
-    print("\n")
-    print(abs((x+y*cos(α))/sqrt(1+(cos(α))^2))-r)
-end
+
 
 
 #given 2 points and a third, compute the image of the third by the homography fixing the others
@@ -63,27 +49,6 @@ end
 
 
 
-function betterGetImage(tri)
-    function partialFractionDecomp(l)
-        a = l[1]
-        b = l[2]
-        return [-(a+b)/2,(a*a-2*a*b+b*b)/4, (a+b)/2]
-    end
-    l1 = partialFractionDecomp(tri[1])
-    l2 = partialFractionDecomp(tri[2])
-    l3 = partialFractionDecomp(tri[3])
-    return function f(i,c)
-        if i == 1
-            return l1[2]/(c+l1[1])+l1[3]
-        elseif i == 2
-            return l2[2]/(c+l2[1])+l2[3]
-        elseif i==3
-            return l3[2]/(c+l3[1])+l3[3]
-        else
-            @assert(false)
-        end
-    end
-end
         
 
 dummyAuto = [[2,3,4],
@@ -102,32 +67,9 @@ dummyAuto = [[2,3,4],
                 [0,5,8]
         ];
 
-function findQuarter(min,max)
-    if 0<=min && min<pi && 0<=max && max<pi 
-        return 1
-    elseif pi/2<=min && min<pi*3/2 && pi/2<=max && max<pi*3/2 
-        return 2
-    elseif pi<=min && min<2*pi && pi<=max && max<2*pi 
-        return 3
-    elseif pi*3/2<=min || min<pi/2 && pi*3/2<=max || max<pi/2 
-        return 4
-    end
-end
 
-function between(a,b,c)
-    aa = mod(angle(a),2*pi)
-    ab = mod(angle(b),2*pi)
-    if ab<aa
-        ab+=2*pi
-    end
-    ac = mod(angle(c),2*pi)
-    if ac<aa
-        ac+=2*pi
-    end
-    return aa<ac && ac<ab   
-end
 
-function betweenI(a,b,c,d)
+function betweenI(a,b,c,d)#Pourquoi ne pas demander between(a,b,c) & between(a,b,d)?
     aa = mod(angle(a),2*pi)
     ab = mod(angle(b),2*pi)
     if ab<aa
@@ -153,26 +95,7 @@ function intervalSize(a,b)
     return (ab-aa)
 end
 
-function toAngles(a,b)
-    aa = mod(angle(a),2*pi)
-    ab = mod(angle(b),2*pi)
-    if ab<aa
-        ab+=2*pi
-    end
-    return [aa/(2*pi),ab/(2*pi)]
-end
 
-function allAngles(intervals)
-    l = [[0.0],[0.0],[0.0]]
-    for i in [1,2,3]
-        l[i] = toAngles(intervals[i][1],intervals[i][2])
-    end
-    return l
-end
-
-function finished(min,max,interval)        
-    between(interval[1],interval[2],min) && between(interval[1],interval[2],max)
-end
 
 function updateInterval(symmetryAxis,interval)
     min = interval[1]
@@ -181,12 +104,6 @@ function updateInterval(symmetryAxis,interval)
     interval[2] = getImage(symmetryAxis[1],symmetryAxis[2],min)
 end
 
-function updateInterval2(symmetryAxisIndex,interval)
-    min = interval[1]
-    max = interval[2]
-    interval[1] = getImage2(symmetryAxisIndex,max)
-    interval[2] = getImage2(symmetryAxisIndex,min)
-end
 
 function updateIntervals(symmetryAxisIndex,intervals)
     fix1 = intervals[symmetryAxisIndex][1]
@@ -200,58 +117,6 @@ function updateIntervals(symmetryAxisIndex,intervals)
     end
     intervals[symmetryAxisIndex][1] = fix2
     intervals[symmetryAxisIndex][2] = fix1
-end
-            
-function allSize(intervals)
-    l = [0.0,0.0,0.0]
-    for i in [1,2,3]
-        l[i] = intervalSize(intervals[i][1],intervals[i][2])
-    end
-    return l
-end
-
-
-function intersection(a,b,c,d)
-    m=c
-    M=d
-    if between(c,d,b)
-        m=b
-    end
-    if between(c,d,a)
-        M=d
-    end
-    return [m,M]
-end
-
-
-function xfindWord(min,max,auto,baseTri)
-    currentState = 1
-    currentIntervals = copy.(baseTri)
-    emin = exp(im*(min))
-    emax = exp(im*(max))
-    size = intervalSize(emin,emax)
-    word = ""
-    while true
-        b = false
-        for i in [1,2,3]
-            if auto[currentState][i]!=0
-                if betweenI(currentIntervals[i][1],currentIntervals[i][2],emin,emax)
-                    b = true
-                    word*=string(i)
-                    if intervalSize(currentIntervals[i][1],currentIntervals[i][2])< size
-                        return word
-                    else
-                        updateIntervals(i,currentIntervals)
-                        currentState = auto[currentState][i]
-                    end
-                    break
-                end
-            end
-        end
-        if !b
-            @assert(false)
-        end
-    end
 end
 
 
@@ -415,10 +280,6 @@ function findFirstPrefix(baseTri,auto,min,max)
     end
 end
     
-
-function cutBaseInterval(min,max,triangle)
-    
-end
 
 function explore(graph,distances,paths,distance,path,current,base)
     for i in [1,2,3]
