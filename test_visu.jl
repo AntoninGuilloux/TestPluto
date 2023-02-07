@@ -22,11 +22,14 @@ begin
 	end
 end
 
+# ╔═╡ 65cfc691-7ed7-4de0-b614-be1a934fd39a
+Threads.threadid()
+
 # ╔═╡ 73492797-d697-4356-818c-238e838fc9d1
 automaton = ingredients("automaton.jl")
 
 # ╔═╡ f9f102e3-114f-45e2-b5fe-43854953bae0
-(θ,α) = (π,π+.1)
+(θ,α) = (π+.1,π+1)
 
 # ╔═╡ d233ae61-2942-43c4-b57a-39d15d8f087a
 (p,q,r) = (3,3,4)
@@ -38,7 +41,7 @@ Triangle = automaton.buildFundTriangle(p,q,r)
 begin
 	My_automaton = automaton.dummyAuto
 	(chosenPrefixes,chosenCycles) = automaton.dijkstra(My_automaton)
-	w = automaton.findWord(Triangle, My_automaton, chosenPrefixes, chosenCycles, 0, 0.001) #un test
+	w = automaton.findWordx(Triangle, My_automaton, chosenPrefixes, chosenCycles, 0, 0.001) #un test
 end
 
 # ╔═╡ 95f36f45-874c-4ccc-99b4-be3c40688125
@@ -50,7 +53,7 @@ begin
 end
 
 # ╔═╡ 744c62a9-cb80-4b7d-9890-ca2f37334f0d
-sum(parametrization.wordToMatrix("1312",My_Rep)[i,i] for i in 1:3)
+trace_Ab = sum(parametrization.wordToMatrix("1312",My_Rep)[i,i] for i in 1:3)
 
 # ╔═╡ 39c341c2-eb15-40a6-8c79-2a44a5e74f96
 begin
@@ -59,6 +62,25 @@ end
 
 # ╔═╡ 98e6fc47-d574-46cc-8ab5-d45d5c7e4ecb
 StartIntervals = ((2*π*(i/1000),2*π*((i+1)/1000)) for i in 0:10:999)
+
+# ╔═╡ bcc88dd6-2118-43b3-99df-6669ac92e2fb
+function distance(point1,point2)
+	return norm(point1 - point2)
+end
+
+# ╔═╡ 9d8bf73d-8329-4c72-8fdd-1aaac71a75f1
+function dichotomy(a,b,split_size)
+	if a < b
+		l = (b-a)/split_size
+		return ((a + (split_size-1)/2*l),(b - (split_size-1)/2*l))
+	else 
+		b = b+2*π
+		l = (b-a)/split_size
+		aa = (a + (split_size-1)/2*l)
+		bb = (b-(split_size-1)/2*l)
+		return (mod(aa,2*π),mod(bb,2*π))
+	end
+end
 
 # ╔═╡ 1d929e1f-1832-4416-9a9d-11e39b7413b2
 function enrichCannonThurston(intervals_to_compute,
@@ -71,47 +93,66 @@ function enrichCannonThurston(intervals_to_compute,
 								fixedPoints_Cycles,
 								)
 	new_cannonthurston = SortedDict()
+
+	problems_count = 0
 	for I in intervals_to_compute
 		a,b = I
-		word = automaton.findWord(
+		aexp = exp(im*a)
+		bexp = exp(im*b)
+		word = automaton.findWordx(
 			triangle, 
 			automat, 
 			chosenPrefixes, 
 			chosenCycles,
-			I[1],
-			I[2]
+			a,
+			b
 		)
 
-		## Attention, il faut associer à (p,s) le point fixe dans S^1. Je le fais mal
-		new_angle=((a+b)/2)%(2*π)
+		## Attention, il faut associer à word = (p,pp, s) le point fixe dans S^1. 
+		## Je le fais de manière peu économique
+		(emin,emax) = automaton.testWord(triangle, automat, 
+			word[1]*word[2]*(word[3])^24)
 
-		new_point = parametrization.wordToPoint(
+		aa = a
+		bb = b
+		control = 10
+		while ((!(automaton.betweenI(aexp,bexp,emin,emax))) && control > 0)
+			control -= 1
+			(aa,bb) = dichotomy(aa,bb,3)
+			word = automaton.findWordx(
+				triangle, 
+				automat, 
+				chosenPrefixes, 
+				chosenCycles,
+				aa,
+				bb
+				)
+			(emin,emax) = automaton.testWord(triangle, automat, 
+				word[1]*word[2]*(word[3])^24)
+		end
+		
+		(x,y) = angle.([emin,emax])
+		new_angle = (x+y)/2
+		if new_angle < 0
+			new_angle += 2*π
+		end
+
+		
+		if !(automaton.betweenI(aexp,bexp,emin,emax))
+			problems_count +=1
+			print("Probleme: $(a), $(aa), $(b), $(bb), $(new_angle) \n")
+		end
+			
+		new_point = parametrization.wordxToPoint(
 			word,
 			representation,
 			fixedPoints_Cycles)
-		new_cannonthurston[new_angle] = (new_point, word) # Il faudrait mettre vraiment le point
-		#fixe de w
+		new_cannonthurston[new_angle] = (new_point, word)
+	end
+	if problems_count >1
+		print("Problèmes: $problems_count \n")
 	end
 	return merge(existing_cannonthurston,new_cannonthurston)
-end
-
-# ╔═╡ bcc88dd6-2118-43b3-99df-6669ac92e2fb
-function distance(point1,point2)
-	return norm(point1 - point2)
-end
-
-# ╔═╡ 9d8bf73d-8329-4c72-8fdd-1aaac71a75f1
-function dichotomy(a,b)
-	if a < b
-		l = (b-a)/11
-		return ((a + 5*l),(b - 5*l))
-	else 
-		b = b+2*π
-		l = (b-a)/11
-		aa = (a + 5*l)
-		bb = (b-5*l)
-		return (aa%(2*π),bb%(2*π))
-	end
 end
 
 # ╔═╡ 89692e62-068f-462b-883b-9bbb3416fd90
@@ -123,15 +164,15 @@ function buildNewIntervals(cannonthurston::DataStructures.SortedDict, precision_
 	for (k_1,(point_1,word_1)) in cannonthurston
 		dist = distance(point_0,point_1)
 		if dist > precision_cible
-			append!(NewIntervals,[dichotomy(k_0,k_1)])
+			append!(NewIntervals,[dichotomy(k_0,k_1,7)])
 		end
 		if dist > max_distance
-			print("A new bigger distance ($(k_0), $(dist)) \n")
+			#print("A new bigger distance ($(k_0), $(dist)) \n")
 			max_distance = dist
 		end
 		(k_0,point_0) = (k_1,point_1)
 	end
-	print("$(max_distance) \n")
+	print("Maximum distance $(max_distance) \n")
 	return NewIntervals
 end
 
@@ -178,9 +219,12 @@ CannonThurston = IterativeConstruction(
 	chosenPrefixes,
 	chosenCycles,
 	fixedPoints_Cycles,
-	10^-4,#precision cible 
-	20
+	10^-3,#precision cible 
+	15
 )#Nombre max d'iterations
+
+# ╔═╡ cfffaa22-5fba-4b6d-ba7d-a20c5363fe01
+dichotomy(4.251880150284955, 4.251905627535233, 3)[1]
 
 # ╔═╡ 7ab8e01a-f19d-4ded-bf5b-d8ffb0b3c512
 function stereographic(point)
@@ -205,10 +249,7 @@ begin
 end
 
 # ╔═╡ bff4e06e-dbe1-4d8f-9b10-787e6d3a21c0
-scatter3d(X,Y,Z,marker_z=angles,markersize=1, markerstrokewidth=0,ratio=1)
-
-# ╔═╡ 76c4b2f2-7793-4896-8e46-dedcb1aa2512
-length(X)
+plot3d(X,Y,Z,line_z=angles,linewidth = .15,ratio=1, linecolor = :hsv)
 
 # ╔═╡ af44fd95-d0cd-41f3-9697-f52dc4791a05
 for (i,k) in enumerate(keys(CannonThurston))
@@ -216,9 +257,6 @@ for (i,k) in enumerate(keys(CannonThurston))
 		print(i)
 	end
 end
-
-# ╔═╡ a4cb19ee-d9e0-4cf5-bc38-4892f944098e
-k0 = 0.24636958638073708
 
 # ╔═╡ 736706d2-d76d-44dc-ad80-26a5246ad2db
 k1 = collect(keys(CannonThurston))[37]
@@ -254,7 +292,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "2c381031b5c36ce06bc48674f7723452604932fb"
+project_hash = "dcacf5184531f47534fde14ca232074dbfdc29c1"
 
 [[deps.AbstractAlgebra]]
 deps = ["GroupsCore", "InteractiveUtils", "LinearAlgebra", "MacroTools", "Markdown", "Random", "RandomExtensions", "SparseArrays", "Test"]
@@ -1596,12 +1634,13 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
+# ╠═65cfc691-7ed7-4de0-b614-be1a934fd39a
 # ╠═40e5d412-a3e2-11ed-210c-277683f873b2
 # ╠═73492797-d697-4356-818c-238e838fc9d1
 # ╠═bff4e06e-dbe1-4d8f-9b10-787e6d3a21c0
-# ╠═76c4b2f2-7793-4896-8e46-dedcb1aa2512
 # ╠═f9f102e3-114f-45e2-b5fe-43854953bae0
 # ╠═744c62a9-cb80-4b7d-9890-ca2f37334f0d
+# ╠═27d3f766-51a7-479d-927d-d778ca3a2947
 # ╠═d233ae61-2942-43c4-b57a-39d15d8f087a
 # ╠═6ab4de1a-e88c-435e-8cc1-52a8bf477542
 # ╠═948fe973-d926-48ab-b269-baa51cc4144b
@@ -1614,12 +1653,11 @@ version = "1.4.1+0"
 # ╠═9d8bf73d-8329-4c72-8fdd-1aaac71a75f1
 # ╠═89692e62-068f-462b-883b-9bbb3416fd90
 # ╠═3e114776-5667-4932-b56b-ba281d555912
-# ╠═27d3f766-51a7-479d-927d-d778ca3a2947
+# ╠═cfffaa22-5fba-4b6d-ba7d-a20c5363fe01
 # ╠═7ab8e01a-f19d-4ded-bf5b-d8ffb0b3c512
 # ╠═1e0c1097-5f47-4a7d-bbcd-97c0957801dd
 # ╠═4336715f-8df1-4d1a-8ccd-cc822f17f813
 # ╠═af44fd95-d0cd-41f3-9697-f52dc4791a05
-# ╠═a4cb19ee-d9e0-4cf5-bc38-4892f944098e
 # ╠═736706d2-d76d-44dc-ad80-26a5246ad2db
 # ╠═30f313a9-043d-4dba-bdab-50358069113a
 # ╠═fd6604d6-f991-4ad9-a0a8-088f3c28109e

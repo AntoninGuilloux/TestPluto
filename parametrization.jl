@@ -33,6 +33,15 @@ function wordToPoint(w,Rep,fixedPoints_computed)
     return point_w/point_w[3]
 end
 
+function wordxToPoint(w,Rep,fixedPoints_computed)
+    (p,pp,s) = w
+    p *= pp
+    Rep_p = wordToMatrix(p,Rep)
+    point_s = fixedPoints_computed[s]
+    point_w = Rep_p * point_s
+    return point_w/point_w[3]
+end
+
 function wordToMatrix(w,Rep)
 
     if (length(w)%2)==1

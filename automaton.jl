@@ -1,11 +1,14 @@
 using IntervalArithmetic, LinearAlgebra, Symbolics
 
+#initial triangle
+#coordinates of the ends of the geodesics opposed to PQR [[,],[,],[,]]
+
 function buildFundTriangle(p,q,r)
     if p == Inf
         return [[im,-1],[-1,1],[1,im]]#outside of the triangle
     else
         P = [-1,1]
-        Q = [exp(im*(2*pi-pi/p)),exp(im*(pi-pi/p))]
+        Q = [exp(im*(2pi-pi/p)),exp(im*(pi-pi/p))]
         #building of the 3rd geodesic
         cp = cos(π/p)
         cq = cos(π/q)
@@ -37,6 +40,20 @@ function buildFundTriangle(p,q,r)
     end
 end
 
+function checkCircle(x,y,r,α)
+    print("\n")
+    print("\n")
+    #orthogonal to unit
+    print(x^2+y^2-(1+r^2)) 
+    print("\n")
+    # angle with (-1,1)
+    print(pi/acos(y/r))
+    print("\n")
+    # angle with the other: y=-x/cos(α)
+    print(pi/acos(cos(α)*(-1*x*tan(α)-y)/r))
+    print("\n")
+    print(abs((x+y*cos(α))/sqrt(1+(cos(α))^2))-r)
+end
 
 
 #given 2 points and a third, compute the image of the third by the homography fixing the others
@@ -49,27 +66,58 @@ end
 
 
 
+function betterGetImage(tri)
+    function partialFractionDecomp(l)
+        a = l[1]
+        b = l[2]
+        return [-(a+b)/2,(a*a-2*a*b+b*b)/4, (a+b)/2]
+    end
+    l1 = partialFractionDecomp(tri[1])
+    l2 = partialFractionDecomp(tri[2])
+    l3 = partialFractionDecomp(tri[3])
+    return function f(i,c)
+        if i == 1
+            return l1[2]/(c+l1[1])+l1[3]
+        elseif i == 2
+            return l2[2]/(c+l2[1])+l2[3]
+        elseif i==3
+            return l3[2]/(c+l3[1])+l3[3]
+        else
+            @assert(false)
+        end
+    end
+end
         
-
+#auto for 3,3,4
 dummyAuto = [[2,3,4],
-                [0,3,4],
-                [5,0,4],
-                [6,7,0],
-                [0,0,4],
-                [0,3,8],
-                [9,0,0],
-                [0,7,0],
-                [0,0,10],
-                [11,7,0],
-                [0,12,0],
-                [5,0,13],
-                [14,0,0],
-                [0,5,8]
-        ];
+            [0,3,4],
+            [5,0,4],
+            [6,7,0],
+            [0,0,4],
+            [0,3,8],
+            [9,0,0],
+            [0,7,0],
+            [0,0,10],
+            [11,7,0],
+            [0,12,0],
+            [5,0,13],
+            [14,0,0],
+            [0,5,8]
+    ];
 
+function findQuarter(min,max)
+    if 0<=min && min<pi && 0<=max && max<pi 
+        return 1
+    elseif pi/2<=min && min<pi*3/2 && pi/2<=max && max<pi*3/2 
+        return 2
+    elseif pi<=min && min<2*pi && pi<=max && max<2*pi 
+        return 3
+    elseif pi*3/2<=min || min<pi/2 && pi*3/2<=max || max<pi/2 
+        return 4
+    end
+end
 
-
-function betweenI(a,b,c,d)#Pourquoi ne pas demander between(a,b,c) & between(a,b,d)?
+function between(a,b,c)
     aa = mod(angle(a),2*pi)
     ab = mod(angle(b),2*pi)
     if ab<aa
@@ -79,11 +127,11 @@ function betweenI(a,b,c,d)#Pourquoi ne pas demander between(a,b,c) & between(a,b
     if ac<aa
         ac+=2*pi
     end
-    ad = mod(angle(d),2*pi)
-    while ad<ac
-        ad+=2*pi
-    end
-    return (aa<=ac && ac<ab)# && ab-ac>(ad-ac)/10) || (aa=<ad && ad=<ab && ad-aa>(ad-ac)/10)
+    return ac<=ab   
+end
+
+function betweenI(a,b,c,d)
+    return (between(a,b,c) && between(c,b,d))# && ab-ac>(ad-ac)/10) || (aa=<ad && ad=<ab && ad-aa>(ad-ac)/10)
 end
 
 function intervalSize(a,b)
@@ -95,7 +143,38 @@ function intervalSize(a,b)
     return (ab-aa)
 end
 
+function toAngles(a,b)
+    aa = mod(angle(a),2*pi)
+    ab = mod(angle(b),2*pi)
+    if ab<aa
+        ab+=2*pi
+    end
+    return [aa/(2*pi),ab/(2*pi)]
+end
 
+function toAngles(l)
+    a = l[1]
+    b = l[2]
+    aa = mod(angle(a),2*pi)
+    ab = mod(angle(b),2*pi)
+    if ab<aa
+        ab+=2*pi
+    end
+    norm = 1
+    return [aa/(norm),ab/(norm)]
+end
+
+function allAngles(intervals)
+    l = [[0.0],[0.0],[0.0]]
+    for i in [1,2,3]
+        l[i] = toAngles(intervals[i][1],intervals[i][2])
+    end
+    return l
+end
+
+function finished(min,max,interval)        
+    between(interval[1],interval[2],min) && between(interval[1],interval[2],max)
+end
 
 function updateInterval(symmetryAxis,interval)
     min = interval[1]
@@ -104,6 +183,12 @@ function updateInterval(symmetryAxis,interval)
     interval[2] = getImage(symmetryAxis[1],symmetryAxis[2],min)
 end
 
+function updateInterval2(symmetryAxisIndex,interval)
+    min = interval[1]
+    max = interval[2]
+    interval[1] = getImage2(symmetryAxisIndex,max)
+    interval[2] = getImage2(symmetryAxisIndex,min)
+end
 
 function updateIntervals(symmetryAxisIndex,intervals)
     fix1 = intervals[symmetryAxisIndex][1]
@@ -118,12 +203,87 @@ function updateIntervals(symmetryAxisIndex,intervals)
     intervals[symmetryAxisIndex][1] = fix2
     intervals[symmetryAxisIndex][2] = fix1
 end
+            
+function allSize(intervals)
+    l = [0.0,0.0,0.0]
+    for i in [1,2,3]
+        l[i] = intervalSize(intervals[i][1],intervals[i][2])
+    end
+    return l
+end
+
+
+function intersection(i1,i2)
+    a = i1[1]
+    b = i1[2]
+    c = i2[1]
+    d = i2[2]
+    m=c
+    M=d
+    if between(c,d,b)
+        M=b
+    end
+    if between(c,d,a)
+        m=a
+    end
+    return [m,M]
+end
+
+function setMinus(i1,i2)
+    a = i1[1]
+    b = i1[2]
+    c = i2[1]
+    d = i2[2]
+    m=a
+    M=b
+    if between(c,d,b)
+        M=c
+    end
+    if between(c,d,a)
+        m=d
+    end
+    i1[1] = m
+    i1[2] = M
+end
+
+
+function xfindWord(min,max,auto,baseTri)
+    currentState = 1
+    currentIntervals = copy.(baseTri)
+    emin = exp(im*(min))
+    emax = exp(im*(max))
+    size = intervalSize(emin,emax)
+    word = ""
+    while true
+        b = false
+        for i in [1,2,3]
+            if auto[currentState][i]!=0
+                if betweenI(currentIntervals[i][1],currentIntervals[i][2],emin,emax)
+                    b = true
+                    word*=string(i)
+                    if intervalSize(currentIntervals[i][1],currentIntervals[i][2])< size
+                        return word
+                    else
+                        updateIntervals(i,currentIntervals)
+                        currentState = auto[currentState][i]
+                    end
+                    break
+                end
+            end
+        end
+        if !b
+            @assert(false)
+        end
+    end
+end
 
 
 function locate(baseTri,target,localisation)
     localisation[1] = locateElem(baseTri,target[1])
     localisation[2] = locateElem(baseTri,target[2])
-    
+#     println("local")
+#     println(localisation)
+#     println("local")
     if localisation[1]>3
         if localisation[1]==4
             if real(target[1])<0
@@ -157,6 +317,10 @@ function locate(baseTri,target,localisation)
             localisation[3] = 0
         end
     end
+#     println("out")
+#     println(localisation)
+#     println("out")
+    
 end
 
 
@@ -164,11 +328,11 @@ end
     
 
 function locateElem(baseTri,target)
-    if imag(target)<-1e-16
+    if imag(target)<-1e-12
         return 1
-    elseif imag(target)>1e-16 && abs(abs(real(target))-abs(real(baseTri[2][2])))<1e-16
+    elseif imag(target)>1e-12 && abs(abs(real(target))-abs(real(baseTri[2][2])))<1e-12
         return 5
-    elseif abs(imag(target))<1e-16
+    elseif abs(imag(target))<1e-12
         return 4
     elseif real(target)>real(baseTri[2][2])
         return 2
@@ -191,9 +355,9 @@ function completeWord(baseTri,auto,target,currentState,parity)
             updateInterval(baseTri[localisation[1]],target)
             parity = mod(parity+1,2)
             word*=string(localisation[1])
-#             if (auto[currentState][localisation[1]]==0)
-#                 @assert(1==4)
-#             end
+            if (auto[currentState][localisation[1]]==0)
+                @assert(1==4)
+            end
             currentState = auto[currentState][localisation[1]]
         else
 #             if mod(length(word),2) != w2
@@ -226,19 +390,26 @@ function findFirstPrefix(baseTri,auto,min,max)
 #             print(word)
 #             @assert(false)
 #         end
+#         println("begin loop")
         locate(baseTri,target,localisation)
+#         println(target)
+#         println(toAngles(target))
+#         println()
+#         println()
         if localisation[1] == localisation[2] && localisation[3] == 1
             updateInterval(baseTri[localisation[1]],target)
 #             updateInterval2(localisation[1],target)
             word*=string(localisation[1])
             
-#             if (auto[currentState][localisation[1]]==0)
-#                 @assert(1==2)
-#             end
+            if (auto[currentState][localisation[1]]==0)
+                @assert(1==2)
+            end
             currentState = auto[currentState][localisation[1]]
         elseif mod(localisation[1]+1,3) == mod(localisation[2],3) #split
 #             w2 = mod(length(word),2)
-            
+#             println(localisation)
+#             println(target)
+#             println(toAngles(target))
             split = 0
 #             if localisation[1] == 1
 #                 split = 0
@@ -261,13 +432,15 @@ function findFirstPrefix(baseTri,auto,min,max)
             
             wordc=""
             
-            if abs(split-min)>abs(max-split)
+#             println(word)
+            if abs(split-target[1])>abs(target[2]-split)
                 target[2] = split
                 (wordc,currentState) = completeWord(baseTri,auto,target,currentState,0)
             else
                 target[1] = split
                 (wordc,currentState) = completeWord(baseTri,auto,target,currentState,1)
             end
+            #println("success1")
             return (word*wordc,currentState)
         else #finished (make the work pair)
 #             if mod(length(word),2) == 1
@@ -275,11 +448,43 @@ function findFirstPrefix(baseTri,auto,min,max)
 #                 word*=string(loc)
 #                 currentState = loc
 #             end
+            #println("success2")
             return (word,currentState)
         end
     end
 end
     
+
+function testWord(baseTri,auto,word)
+    currentIntervals = copy.(baseTri)
+    @assert(length(word)>0)
+    currentState = 1
+    targetInterval = [0.0,0.0]
+    
+    if word[1] == '1'
+        targetInterval = [-1.0+0*im,1.0+0*im]
+    else
+        targetInterval = [1.0+0*im,-1.0+0*im]
+    end
+    
+    nextAction=0
+    for i in 1:length(word)
+        nextAction = parse(Int,word[i])
+        for i in [1,2,3]
+            if i == nextAction
+                @assert(auto[currentState][i]!=0)
+                currentState = auto[currentState][i]
+                targetInterval = intersection(targetInterval,currentIntervals[i])
+                updateIntervals(i,currentIntervals)
+                break
+            else
+                setMinus(targetInterval,currentIntervals[i])
+            end
+            
+        end
+    end
+    return targetInterval
+end
 
 function explore(graph,distances,paths,distance,path,current,base)
     for i in [1,2,3]
@@ -340,10 +545,23 @@ function dijkstra(auto)
     return (chosenPrefixes,chosenCycles)
 end
 
+(chosenPrefixes,chosenCycles) = dijkstra(dummyAuto)
+
 function permute(str)
     return str[2:length(str)]*str[1]
 end
 
+
+function findWordx(baseTri,auto,chosenPrefixes,chosenCycles,min,max)
+    (prefix1,currentState) = findFirstPrefix(baseTri,auto,min,max)
+    prefix2=chosenPrefixes[currentState]
+    if mod(length(prefix1)+length(prefix2),2) == 1
+        prefix2*=chosenCycles[currentState][1]
+        return (prefix1,prefix2,permute(chosenCycles[currentState]))
+    else
+        return (prefix1,prefix2,chosenCycles[currentState])
+    end
+end
 
 
 function findWord(baseTri,auto,chosenPrefixes,chosenCycles,min,max)
