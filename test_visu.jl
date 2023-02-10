@@ -22,17 +22,14 @@ begin
 	end
 end
 
-# ╔═╡ 65cfc691-7ed7-4de0-b614-be1a934fd39a
-Threads.threadid()
-
-# ╔═╡ 73492797-d697-4356-818c-238e838fc9d1
-automaton = ingredients("automaton.jl")
-
 # ╔═╡ f9f102e3-114f-45e2-b5fe-43854953bae0
-(θ,α) = (π+.1,π+1)
+(θ,α) = (π+.41,π+.1)
 
 # ╔═╡ d233ae61-2942-43c4-b57a-39d15d8f087a
 (p,q,r) = (3,3,4)
+
+# ╔═╡ 73492797-d697-4356-818c-238e838fc9d1
+automaton = ingredients("automaton.jl")
 
 # ╔═╡ 6ab4de1a-e88c-435e-8cc1-52a8bf477542
 Triangle = automaton.buildFundTriangle(p,q,r)
@@ -1634,14 +1631,13 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═65cfc691-7ed7-4de0-b614-be1a934fd39a
 # ╠═40e5d412-a3e2-11ed-210c-277683f873b2
-# ╠═73492797-d697-4356-818c-238e838fc9d1
 # ╠═bff4e06e-dbe1-4d8f-9b10-787e6d3a21c0
 # ╠═f9f102e3-114f-45e2-b5fe-43854953bae0
 # ╠═744c62a9-cb80-4b7d-9890-ca2f37334f0d
 # ╠═27d3f766-51a7-479d-927d-d778ca3a2947
 # ╠═d233ae61-2942-43c4-b57a-39d15d8f087a
+# ╠═73492797-d697-4356-818c-238e838fc9d1
 # ╠═6ab4de1a-e88c-435e-8cc1-52a8bf477542
 # ╠═948fe973-d926-48ab-b269-baa51cc4144b
 # ╠═95f36f45-874c-4ccc-99b4-be3c40688125
